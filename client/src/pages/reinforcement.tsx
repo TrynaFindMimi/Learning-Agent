@@ -1,30 +1,33 @@
-import { useState, useEffect, useRef } from "react";
-import { Card, Typography, Layout, FloatButton, Modal, Input, Button } from "antd";
-import { MessageOutlined, SendOutlined } from "@ant-design/icons";
+import React, { useState, useEffect, useRef } from "react";
+import { Card, Typography, Layout, FloatButton, Modal, Input, Button, Space, Row, Col } from "antd";
+import { MessageOutlined, SendOutlined, BookOutlined, FileTextOutlined } from "@ant-design/icons";
 import { Link } from "react-router-dom";
 import "./reinforcement.css";
 import type { ChatWithIARequest, ChatWithIAResponse } from "./model";
+
 const MIN_CHARACTERS = 1;
 
 export function StudentProfile() {
-  const [activeSubject, setActiveSubject] = useState("Matemáticas");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const chatBodyRef = useRef<HTMLDivElement>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const studentData = {
     courses: [
       {
         id: "exam",
-        title: (subject: string) => `Exámenes de ${subject}`,
+        title: "Exámenes",
+        description: "Preparación para exámenes y evaluaciones"
       },
       {
         id: "interview",
-        title: "Entrevistas Técnicas",
-      }
-    ]
+        title: "Entrevistas",
+        description: "Preparación para entrevistas de trabajo"
+      },
+    ],
   };
 
   const handleChatClick = () => {
@@ -32,18 +35,20 @@ export function StudentProfile() {
     setMessages([]);
     setIsTyping(true);
     setTimeout(() => {
+      setMessages([
+        {
+          sender: "bot",
+          text: "¡Hola! Soy tu asistente. ¿En qué puedo ayudarte hoy?",
+        },
+      ]);
       setIsTyping(false);
-      setMessages([{
-        sender: "bot",
-        text: "¡Hola! Soy tu asistente. ¿En qué puedo ayudarte hoy?"
-      }]);
-    }, 1800);
+    }, 3000); // Duración de la animación de 3 segundos
   };
 
   const handleSendMessage = async () => {
     if (inputValue.trim().length >= MIN_CHARACTERS) {
-      const newMessage = { sender: "user", text: inputValue.trim() };
-      setMessages(prev => [...prev, newMessage]);
+      const userMessage = { sender: "user", text: inputValue.trim() };
+      setMessages(prev => [...prev, userMessage]);
       setInputValue("");
       setIsTyping(true);
 
@@ -53,11 +58,11 @@ export function StudentProfile() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ question: inputValue } as ChatWithIARequest),
+          body: JSON.stringify({ question: userMessage.text } as ChatWithIARequest),
         });
 
         const data = await response.json() as ChatWithIAResponse;
-        console.log("respuesta", data)
+        console.log("respuesta", data);
         setMessages(prev => [
           ...prev,
           { sender: "bot", text: data.answer }
@@ -76,107 +81,172 @@ export function StudentProfile() {
     }
   };
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
-    if (chatBodyRef.current) {
-      chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
-    }
+    scrollToBottom();
   }, [messages, isTyping]);
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSendMessage();
+    }
+  };
+
   return (
-    <Layout className="layout">
-      <Layout.Content className="content">
-        <div className="content-container">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 mx-auto max-w-7xl">
-            {studentData.courses.map((course) => (
-              <Link to={`/${course.id}`} key={course.id}>
-                <Card
-                  hoverable
-                  className="w-full h-52 overflow-hidden rounded-xl bg-white shadow-md transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl relative"
+    <div className="profile-container">
+      <Layout className="layout">
+        <Layout.Content className="content">
+          <div className="content-container">
+            <Row className="side-header-container">
+              <Col span={24}>
+                <div className="side-header">
+                  <Typography.Title level={1} className="side-header-title">
+                    Refuerzo
+                  </Typography.Title>
+                  <Typography.Text className="side-header-subtitle">
+                    Selecciona una categoría para practicar
+                  </Typography.Text>
+                </div>
+              </Col>
+            </Row>
+
+            <div className="header-buttons">
+              <Space>
+                <Button 
+                  icon={<BookOutlined />} 
+                  onClick={() => setIsModalOpen(true)}
+                  size="middle"
+                  className="header-button"
                 >
-                  <div className="relative z-10 flex flex-col justify-end items-center h-full p-6 text-center">
-                    <Typography.Title level={3} className="text-gray-800 text-2xl font-bold">
-                      {typeof course.title === 'function'
-                        ? course.title(activeSubject)
-                        : course.title}
-                    </Typography.Title>
-                  </div>
+                  Silabo
+                </Button>
+                <Button 
+                  icon={<FileTextOutlined />} 
+                  onClick={() => setIsModalOpen(true)}
+                  size="middle"
+                  className="header-button"
+                >
+                  Documentos
+                </Button>
+              </Space>
+            </div>
+
+            <Row className="wide-card-container">
+              <Col span={24}>
+                <Card className="wide-card">
+                  <Typography.Title level={3} className="wide-card-title">
+                    Progreso
+                  </Typography.Title>
                 </Card>
-              </Link>
-            ))}
+              </Col>
+            </Row>
+
+            {/* Cards de Exámenes y Entrevistas */}
+            <Row gutter={[24, 24]} justify="center" className="cards-responsive-container">
+              {studentData.courses.map((course) => (
+                <Col xs={24} sm={24} md={12} lg={12} key={course.id}>
+                  <Link to={`/${course.id}`} className="card-link">
+                    <Card className="simple-course-card responsive-card">
+                      <Typography.Title level={3} className="simple-card-title">
+                        {course.title}
+                      </Typography.Title>
+                      <Typography.Text className="simple-card-description">
+                        {course.description}
+                      </Typography.Text>
+                    </Card>
+                  </Link>
+                </Col>
+              ))}
+            </Row>
           </div>
-        </div>
-        <div className="float-button-animation">
-          <FloatButton
-            icon={<MessageOutlined style={{ fontSize: "20px" }} />}
-            type="primary"
-            onClick={handleChatClick}
-            className="float-button"
-          />
-        </div>
-      </Layout.Content>
+          
+          <div className="float-button-container">
+            <FloatButton
+              icon={<MessageOutlined />}
+              type="default"
+              onClick={handleChatClick}
+              className="simple-float-button"
+            />
+          </div>
+        </Layout.Content>
+      </Layout>
       <Modal
         title={null}
         open={isChatOpen}
         onCancel={() => setIsChatOpen(false)}
         footer={null}
-        width="90vw"
-        style={{ top: "auto", bottom: "40px", maxWidth: "600px" }}
+        width={400}
+        style={{ bottom: "20px", right: "20px", position: "fixed" }}
         closable={false}
-        bodyStyle={{ padding: 0, borderRadius: "20px" }}
-        className="chat-modal"
+        bodyStyle={{ padding: 0 }}
+        className="simple-chat-modal"
       >
-        <div className="chat-container">
-          <div className="chat-header">
-            <Typography.Title level={4} className="chat-title">
-              Asistente
+        <div className="simple-chat-container">
+          <div className="simple-chat-header">
+            <Typography.Title level={4} className="simple-chat-title">
+              Asistente Virtual
             </Typography.Title>
-            <Typography.Text className="chat-subtitle">
-              Estoy aquí para ayudarte con tus cursos
-            </Typography.Text>
+            <Button 
+              type="text" 
+              onClick={() => setIsChatOpen(false)}
+              style={{ position: 'absolute', right: '10px', top: '10px', color: 'white' }}
+            >
+              X
+            </Button>
           </div>
-          <div ref={chatBodyRef} className="chat-body">
+          <div className="simple-chat-body">
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`chat-message ${message.sender === 'user' ? 'user' : 'bot'}`}
+                className={`simple-chat-message ${message.sender === 'user' ? 'user' : 'bot'}`}
               >
                 {message.text}
               </div>
             ))}
             {isTyping && (
-              <div className="chat-message bot">
-                <div className="typing-indicator">
-                  <div className="typing-text">
-                    Escribiendo
-                    <span className="typing-dot" style={{ animationDelay: "0s" }}></span>
-                    <span className="typing-dot" style={{ animationDelay: "0.2s" }}></span>
-                    <span className="typing-dot" style={{ animationDelay: "0.4s" }}></span>
-                  </div>
-                </div>
+              <div className="simple-typing-indicator">
+                <span className="simple-typing-dot"></span>
+                <span className="simple-typing-dot"></span>
+                <span className="simple-typing-dot"></span>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
-          <div className="chat-footer">
-            <div className="input-container">
-              <Input
-                placeholder={`Escribe tu mensaje (mín. ${MIN_CHARACTERS} caracteres)...`}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onPressEnter={handleSendMessage}
-                className="chat-input input-hover"
-              />
-              <div className="button-hover">
+          <div className="simple-chat-footer">
+            <Input
+              placeholder={`Escribe tu mensaje...`}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onPressEnter={handleKeyPress}
+              className="simple-chat-input"
+              suffix={
                 <Button
-                  type="primary"
+                  type="text"
                   onClick={handleSendMessage}
                   icon={<SendOutlined />}
-                  className="send-button"
+                  disabled={inputValue.trim().length < MIN_CHARACTERS || isTyping}
                 />
-              </div>
-            </div>
+              }
+            />
           </div>
         </div>
       </Modal>
-    </Layout>
+      <Modal
+        title="Funcionalidad en desarrollo"
+        open={isModalOpen}
+        onOk={() => setIsModalOpen(false)}
+        onCancel={() => setIsModalOpen(false)}
+        footer={[
+          <Button key="back" onClick={() => setIsModalOpen(false)}>
+            Cerrar
+          </Button>,
+        ]}
+      >
+        <p>Esta funcionalidad aún está en desarrollo y estará disponible pronto.</p>
+      </Modal>
+    </div>
   );
 }
